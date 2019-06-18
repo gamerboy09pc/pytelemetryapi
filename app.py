@@ -58,7 +58,7 @@ def home():
 #what URL should trigger our function.'/'
 
 
-'''#$ curl -i http://localhost:5000/telemetry/api/1'''
+'''#$ curl -i http://localhost:5000/telemetry/api/abcd123'''
 @app.route('/telemetry/api/<string:CAK>', methods=['GET'])
 def get_task(CAK):
     for t in tasks:
@@ -77,28 +77,6 @@ if __name__ == '__main__':
 
 
 
-'''
-#$ curl -i http://localhost:5000/telemetry/api/v1.0/tasks/2
-@app.route('/telemetry/api/1.0/tasks/<int:tid>', methods=['GET'])
-def get_task(tid):
-    for t in tasks:
-        if t['id'] == tid:
-            return jsonify({'Task': t})
-'''
-          
-''' alternate version of ^
-#$ curl -i http://localhost:5000/telemetry/api/v1.0/tasks?tid=2
-@app.route('/telemetry/api/1.0/tasks', methods=['GET'])
-def get_task():
-    if 'tid' in request.args:
-        t_id = int(request.args['tid'])
-        for t in tasks:
-            if t['id'] == t_id:
-                return jsonify({'Task': t})
-    else:
-        return "Error: No task id field provided. Please specify an task id."
-'''
-
 
 '''
 @app.errorhandler(404)
@@ -107,7 +85,7 @@ def not_found(error):
 '''
 
 
-@app.route('/telemetry/api/posttask/<string:Tn>', methods=['POST'])
+@app.route('/telemetry/api/posttask/<string:Tn>', methods=['GET', 'POST'])
 #$ curl -i -H "Content-Type: application/json" -X POST -d '{"TicketNo":"aghsg"}' http://localhost:5000/telemetry/api/posttask
 #curl -i -H "Content-Type: application/json" -X POST -d "{"""TicketNo""":"""akjs"""}" http://localhost:5000/telemetry/api/posttask
 def create_task(Tn):
@@ -131,6 +109,20 @@ def create_task(Tn):
         tasks.append(task)
         return jsonify({'Task': task}), 201
     return jsonify({'Error: ': ''})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,5 +1,7 @@
-from flask import (Flask, jsonify, render_template, request, make_response)
+from flask import (Flask, jsonify, render_template, request, make_response, url_for)
 from datetime import datetime
+
+
 
 '''import Flask class. An instance of this class will be our WSGI application.'''
 
@@ -14,15 +16,19 @@ This is needed so that Flask knows where to look for templates,
 static files, and so on.'''
 
 
-def get_timestamp():
-    return datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))
+@app.errorhandler(400)
+def not_found(error):
+    return make_response(jsonify( { 'error': 'Bad request' } ), 400)
 
+@app.errorhandler(404)
+def not_found(error):
+    return make_response(jsonify({'error': 'Not found'}), 404)
 
 tasks = [
     {
         'id': 1,
         'TicketNo': u'hbdm123',
-        'datetimest': get_timestamp(),
+        'DateTimeStamp': datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
         'AutomationServiceAccount': u'xyz',
         'CallingAPIKey': u'abcd123',
         'APIType': u'rest',
@@ -35,7 +41,7 @@ tasks = [
     {
         'id': 2,
         'TicketNo': u'hbdm456',
-        'datetimest': get_timestamp(),
+        'DateTimeStamp': datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
         'AutomationServiceAccount': u'zxc',
         'CallingAPIKey': u'abcd345',
         'APIType': u'rest',
@@ -53,27 +59,34 @@ def home():
     return render_template('home.html')
 
 
-# use the route() decorator to tell Flask
-# what URL should trigger our function.'/'
+def make_public_task(task):
+    new_task = {}
+    for field in task:
+        if field == 'id':
+            new_task['uri'] = url_for('get_task', CAK=task['CallingAPIKey'], _external=True) #absolute address
+        else:
+            new_task[field] = task[field]
+    return new_task
 
 
-'''#$ curl -i http://localhost:5000/api/telemetry/task/abcd123'''
-
-
+#$ curl -i http://localhost:5000/api/telemetry/task/abcd123
 @app.route('/api/telemetry/task/<string:CAK>', methods=['GET'])
-def get_task(CAK):
+def get_task(CAK): #with partial search
+    ts=[]
     for t in tasks:
-        if t['CallingAPIKey'] == CAK:
-            return jsonify({'Task': t})
+        for i in range(0,len(t['CallingAPIKey'])):
+            if CAK == t['CallingAPIKey'][0:i+1]:
+                ts.append(t)
+                break
+    if len(ts):
+        return jsonify({'Task': ts})
     return jsonify({'Error: ': 'No such task exists. Please specify correct CallingAPIKey.'})
 
 
-'''#$ curl -i http://localhost:5000/api/telemetry/task'''
-
-
+#$ curl -i http://localhost:5000/api/telemetry/task
 @app.route('/api/telemetry/task', methods=['GET'])
 def get_alltasks():
-    return jsonify({'tasks': tasks})
+    return jsonify({'tasks': [make_public_task(task) for task in tasks]})
 
 
 # $ curl -i -H "Content-Type: application/json" -X POST -d '{"TicketNo":"aghsg"}' http://localhost:5000/api/telemetry/task
@@ -82,7 +95,7 @@ def get_alltasks():
 def create_task():
     task = {'id': tasks[-1]['id'] + 1,
             'TicketNo': request.json.get('TicketNo',""),
-            'datetimest': request.json.get('datetimest',""),
+            'DateTimeStamp': request.json.get('DateTimeStamp',""),
             'AutomationServiceAccount': request.json.get('AutomationServiceAccount', ""),
             'CallingAPIKey': request.json.get('CallingAPIKey', ""),
             'APIType': request.json.get('APIType', ""),

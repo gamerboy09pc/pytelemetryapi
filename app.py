@@ -85,7 +85,8 @@ def get_task(CAK):  # with partial search
             if CAK == t['CallingAPIKey'][0:i + 1]:
                 ts.append(t)
                 break
-        return jsonify({'tasks': make_public_task1(task) for task in ts})
+    if len(ts):
+        return jsonify({'tasks': [make_public_task1(task) for task in ts]})
     return jsonify({'Error: ': 'No such task exists. Please specify valid CallingAPIKey.'})
 
 

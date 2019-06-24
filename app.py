@@ -1,28 +1,16 @@
 from flask import (Flask, jsonify, render_template, request, make_response, url_for)
 from datetime import datetime
-
-'''An instance of the flask class will be our WSGI application.'''
+import math
 
 app = Flask(__name__, template_folder="templates")
 
-'''create an instance of this class. The first argument is
-the name of the application’s module or package. If you are using a
-single module (as in this example), you should use __name__ because
-depending on if it’s started as application or imported as module
-the name will be different ('__main__' versus the actual import name).
-This is needed so that Flask knows where to look for templates,
-static files, and so on.'''
-
-
 @app.errorhandler(400)
-def not_found(error):
+def bad_request(error):
     return make_response(jsonify({'error': 'Bad request'}), 400)
-
 
 @app.errorhandler(404)
 def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
-
 
 tasks = [
     {
@@ -53,13 +41,11 @@ tasks = [
     }
 ]
 
-
 @app.route('/')
 def home():
     return render_template('home.html')
 
-
-def make_public_task1(task):
+def make_public_task(task):
     new_task = {}
     for field in task:
         if field == 'id':
@@ -68,42 +54,34 @@ def make_public_task1(task):
             new_task[field] = task[field]
     return new_task
 
-
 page_limit = 5
-p = 0
-q = 0
-next_page = False
 
+@app.route('/api/telemetry/task', methods=['GET'])
+#http://localhost:5000/api/telemetry/task?CAK=abcd&pno=1
+def get_task():  # with partial search
+    CAK = (request.args.get('CAK', None))
+    pno = int(request.args.get('pno', 1))
+    if not CAK:
+        if len(tasks[(pno - 1) * page_limit:(pno - 1) * page_limit + page_limit]):
+            return jsonify({'Total Tasks': len(tasks), 'No. of pages': math.ceil(len(tasks)/page_limit)},
+                           {'tasks': [make_public_task(task) for task in tasks[(pno - 1) * page_limit:(pno - 1) * page_limit + page_limit]]})
+        return jsonify({'Error: ': 'No tasks to show.'})
 
-# $ curl -i http://localhost:5000/api/telemetry/task/abcd123
-@app.route('/api/telemetry/task/c/<string:CAK>', methods=['GET'])
-#@app.route('/api/telemetry/task/<string:CAK><int:pno>', methods=['GET'])
-def get_task(CAK):  # with partial search
+    CAK = str(request.args.get('CAK',None))
     ts = []
     for t in tasks:
         for i in range(0, len(t['CallingAPIKey'])):
             if CAK == t['CallingAPIKey'][0:i + 1]:
                 ts.append(t)
                 break
-    if len(ts):
-        return jsonify({'tasks': [make_public_task1(task) for task in ts]})
-    return jsonify({'Error: ': 'No such task exists. Please specify valid CallingAPIKey.'})
-
-
-# $ curl -i http://localhost:5000/api/telemetry/task
-#@app.route('/api/telemetry/task', methods=['GET'])
-@app.route('/api/telemetry/task/<int:pno>', methods=['GET'])
-def get_alltasks(pno):
-    if len(tasks[(pno-1)*page_limit:(pno-1)*page_limit+page_limit]):
-        return jsonify({'tasks': [make_public_task1(task) for task in tasks[(pno-1)*page_limit:(pno-1)*page_limit+page_limit]]})
+    if len(ts[(pno-1)*page_limit:(pno-1)*page_limit+page_limit]):
+        return jsonify({'Total Tasks': len(ts), 'No. of pages': math.ceil(len(ts)/page_limit)},
+                       {'tasks': [make_public_task(task) for task in ts[(pno-1)*page_limit:(pno-1)*page_limit+page_limit]]})
     return jsonify({'Error: ': 'No tasks to show.'})
 
-
-# $ curl -i -H "Content-Type: application/json" -X POST -d '{"TicketNo":"aghsg"}' http://localhost:5000/api/telemetry/task
-# curl -i -H "Content-Type: application/json" -X POST -d "{"""TicketNo""":"""akjs"""}" http://localhost:5000/api/telemetry/task
 @app.route('/api/telemetry/task', methods=['POST'])
 def create_task():
-    task = {'id': tasks[-1]['id'] + 1,
+    task = {'id': (tasks[-1]['id'] + 1) if len(tasks) else 1,
             'TicketNo': request.json.get('TicketNo', ""),
             'DateTimeStamp': request.json.get('DateTimeStamp', ""),
             'AutomationServiceAccount': request.json.get('AutomationServiceAccount', ""),
@@ -117,7 +95,6 @@ def create_task():
             }
     tasks.append(task)
     return jsonify({'task': tasks[-1]}), 201
-
 
 if __name__ == '__main__':
     app.run(debug=True)

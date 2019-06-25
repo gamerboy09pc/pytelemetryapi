@@ -8,9 +8,13 @@
     <h2>
         Welcome to the API! <br><br>
         Options: <br> <br>
-                 Get all tasks.                -   http://localhost:5000/api/telemetry/task?pno= <br>
-                 Get task with CallingAPIKey.  -   http://localhost:5000/api/telemetry/task?CAK= &pno= <br>
-                 Post task                     -   http://localhost:5000/api/telemetry/task <br>
+                 Get all tasks.                -   http://localhost:5000/api/telemetry/task?Page= <br>
+                 Get task with CallingAPIKey.  -   http://localhost:5000/api/telemetry/task?Calling_API_Key= &Page= &Page_Limit= <br>
+                 Post task                     -   http://localhost:5000/api/telemetry/task <br> <br>
+                 Calling_API_Key - String <br>
+                 Page - Integer > 0 <br>
+                 Page_Limit - Integer between 1-100 <br>
+                 
     </h2>
 </body>
 </html>

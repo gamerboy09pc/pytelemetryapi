@@ -50,7 +50,9 @@ tasks = [                 #list to store tasks of dictionary type
 def home():                                       #home page
     return render_template('home.html')
 
-def make_public_task(task):                       #replace 'id' field of task with uri of the task
+
+def make_public_task(task):           # replace 'id' field of task with uri of the task
+                                    # uri also allows acts as a link to all other tasks with the same CallingAPIKey
     new_task = {}
     for field in task:
         if field == 'id':
@@ -63,6 +65,7 @@ def make_public_task(task):                       #replace 'id' field of task wi
 @app.route('/api/telemetry/task', methods=['GET'])
 # http://localhost:5000/api/telemetry/task?Calling_API_Key=abcd&Page=1&Page_Limit=10
 def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter with partial search, Page and Page_Limit parameters for pagination
+
     global Page_Limit
     global Page
     Calling_API_Key = request.args.get('Calling_API_Key', None)
@@ -89,9 +92,11 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
                            {'tasks': [make_public_task(task) for task in tasks[(Page - 1) * Page_Limit:(Page - 1) * Page_Limit + Page_Limit]]})
         return jsonify({'Error: ': 'No tasks to show.'})
 
-    # to get all tasks with the specified Calling_API_Key - max taks per page = Page_Limit
+    # to get all tasks with the specified Calling_API_Key - max tasks per page = Page_Limit
     Calling_API_Key = str(request.args.get('Calling_API_Key',None))
-    global ts                 #list to store matching tasks with the specified Calling_API_Key
+    global ts                             # global list to store matching tasks with the specified Calling_API_Key
+    for i in range(len(ts) - 1, -1, -1):  # empty ts[] as it may have search results of previous calls
+        ts.pop(i)
     for t in tasks:
         for i in range(0, len(t['CallingAPIKey'])):
             if Calling_API_Key == t['CallingAPIKey'][0:i + 1]:
@@ -110,12 +115,12 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
 def create_task():       #post task - values of fields optional
     if 'id' in request.json:
         return jsonify({'Error: ': "id of the task is automatically assigned, no need to provide it"})
-    if not str(request.json.get('ExecutionTime')).isdigit():
+    if 'ExecutionTime' in request.json and not str(request.json.get('ExecutionTime')).isdigit():
         return jsonify({'Error: ': "Execution Time can only be an integer type"})
-
-    task = {'id': (tasks[-1]['id'] + 1) if len(tasks) else 1,          #id of last task + 1 if tasks list is not empty else 1
+    # new task to be added to tasks list
+    task = {'id': (tasks[-1]['id'] + 1) if len(tasks) else 1,    # id of last task + 1 if tasks list is not empty else 1
             'TicketNo': request.json.get('TicketNo', ""),
-            'DateTimeStamp': request.json.get('DateTimeStamp', ""),
+            'DateTimeStamp': request.json.get('DateTimeStamp', datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))),
             'AutomationServiceAccount': request.json.get('AutomationServiceAccount', ""),
             'CallingAPIKey': request.json.get('CallingAPIKey', ""),
             'APIType': request.json.get('APIType', ""),

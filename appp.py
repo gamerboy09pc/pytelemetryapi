@@ -1,13 +1,45 @@
 from flask import (Flask, jsonify, render_template, request, make_response, url_for)
 from datetime import datetime
 import math
+import pyodbc
+import pprint # prettyprint
+from flask_httpauth import HTTPBasicAuth
 
 app = Flask(__name__, template_folder="templates")
+
+'''........................................authentication block start......................................'''
+auth = HTTPBasicAuth()
+
+userN = 'pc'   # username
+passW = 'pcp'  # password
+
+@auth.get_password              #provides basic http authentication for get and post
+# in postman go to authorization tab, select Basic Auth and put username password there
+def get_password_and_key(username):
+    """ Simple text-based authentication """
+    if username == userN:
+        return passW
+    else:
+        return None
+
+
+@auth.error_handler
+def unauthorized():
+    #Return a 403 instead of a 401 to prevent browsers from displaying the default auth dialog
+    return make_response(jsonify({'message': 'Unauthorized Access'}), 403)
+
+
+'''......................................authentication block end........................................'''
+
 
 # global variables
 Page_Limit = 5 # limit on number of tasks shown per page, can be changed by passing as url parameter in get functions
 Page = 1 # the page to display for the results returned by get functions
 ts=[]  # list to store tasks matching specified CallingAPIKey in get function
+
+
+'''...................................http error handling block start................................'''
+
 
 @app.errorhandler(400)                        #handle error 400 neatly, give json response
 def bad_request(error):
@@ -17,7 +49,26 @@ def bad_request(error):
 def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
-tasks = [                 #list to store tasks of dictionary type
+
+'''...................................http error handling block end................................'''
+
+
+'''...................................sql server connection block start................................'''
+
+
+server = 'LAPTOP-96DA7F8K'
+database = 'telemetry'
+username = 'sa'
+password = 'mssqlparth'
+cnxn = pyodbc.connect('DRIVER={ODBC Driver 17 for SQL Server};SERVER='+server+';DATABASE='+database
+                      +';UID='+username+';PWD='+ password)
+#print(type(cnxn))
+cursor = cnxn.cursor()
+
+
+'''...................................sql server connection block end................................'''
+
+'''tasks = [                 #list to store tasks of dictionary type
     {
         'id': 1,
         'TicketNo': u'hbdm123',
@@ -45,6 +96,9 @@ tasks = [                 #list to store tasks of dictionary type
         'ExecutionTime': 400
     }
 ]
+'''
+
+tasks=[] # a list that will temporarily store data fetched from database, will be converted to json and displayed
 
 @app.route('/')
 def home():                                       #home page
@@ -63,9 +117,17 @@ def make_public_task(task):           # replace 'id' field of task with uri of t
 
 
 @app.route('/api/telemetry/task', methods=['GET'])
+@auth.login_required
 # http://localhost:5000/api/telemetry/task?Calling_API_Key=abcd&Page=1&Page_Limit=10
 def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter with partial search, Page and Page_Limit parameters for pagination
 
+    cursor.execute("select max(id) from dbo.tasks;")
+    Number_of_tasks = [x for x in cursor.fetchone()][0] # check if database is empty
+    if not Number_of_tasks:
+        return jsonify({'Error: ': 'No tasks in database'})
+    global tasks
+    for i in range(len(tasks) - 1, -1, -1):  # empty tasks[] as it may have search results of previous calls
+        tasks.pop(i)
     global Page_Limit
     global Page
     Calling_API_Key = request.args.get('Calling_API_Key', None)
@@ -74,64 +136,119 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
 
     if not str(Page_Limit).isdigit() or int(Page_Limit) < 1 :
         return jsonify({'Error: ': 'Page Limit has to be an integer and cannot be less than 1. (Maximum 100)'})
-    if int(Page_Limit)>100:                   # Max 100 tasks per page
+    if int(Page_Limit)>100:                   # Max 100 tasks per page(adjust according to need)
         (Page_Limit)=100
     Page_Limit=int(Page_Limit)
     if int(Page) < 1 or not str(Page).isdigit() :
         return jsonify({'Error: ': 'Page Number has to be an integer and cannot be less than 1.'})
     Page=int(Page)
 
-    # to get all tasks when Calling_API_Key is not specified but only few at a time = Page_Limit
+    # to get all tasks - when Calling_API_Key is not specified but only few at a time = Page_Limit
     if not Calling_API_Key:
-        if Page > math.ceil(len(tasks) / Page_Limit) :
-            return jsonify({'Error: ': 'No tasks to show for the specified page number. '
-                                       'Enter page number between 1 to '+ str(math.ceil(len(tasks)/Page_Limit))})
-        if len(tasks[(Page - 1) * Page_Limit:(Page - 1) * Page_Limit + Page_Limit]):
-            return jsonify({'Total Tasks': len(tasks), 'Number of Pages': math.ceil(len(tasks)/Page_Limit),
-                            'Page Limit (maximum : 100)': Page_Limit} ,
-                           {'tasks': [make_public_task(task) for task in tasks[(Page - 1) * Page_Limit:(Page - 1) * Page_Limit + Page_Limit]]})
+        cursor.execute("use telemetry;")
+        cursor.execute("select max(id) from dbo.tasks;")
+        Number_of_tasks = [x for x in cursor.fetchone()][0]  # number of tasks in database
+        if Page > math.ceil(Number_of_tasks / Page_Limit) :
+            return jsonify({'Error: ': 'No tasks to show for the specified page number. '})
+        cursor.execute("select * from tasks where id between "+str((Page - 1) * Page_Limit)+" and "+str((Page - 1) * Page_Limit + Page_Limit)+";")
+        row = cursor.fetchone()
+
+        while row:
+            #print(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10])
+            tasks.append({'id': row[0],
+                          'TicketNo': row[1],
+                          'DateTimeStamp': row[2],
+                          'AutomationServiceAccount': row[3],
+                          'CallingAPIKey': row[4],
+                          'APIType': row[5],
+                          'Source': row[6],
+                          'TargetDevices': row[7],
+                          'AutomationName': row[8],
+                          'Status': row[9],
+                          'ExecutionTime': row[10]})
+            row = cursor.fetchone()
+
+        if len(tasks):
+            return jsonify({'Total Tasks': Number_of_tasks, 'Number of Pages': math.ceil(Number_of_tasks/Page_Limit),
+                            'Page Limit (maximum : 100)': Page_Limit},
+                           {'tasks': [make_public_task(task) for task in tasks]})
         return jsonify({'Error: ': 'No tasks to show.'})
 
     # to get all tasks with the specified Calling_API_Key - max tasks per page = Page_Limit
+    # to send url special characyers like & and = as parameter, you have to percent-encode them
+    # eg & should be sent as %26
     Calling_API_Key = str(request.args.get('Calling_API_Key',None))
     global ts                             # global list to store matching tasks with the specified Calling_API_Key
     for i in range(len(ts) - 1, -1, -1):  # empty ts[] as it may have search results of previous calls
         ts.pop(i)
-    for t in tasks:
-        for i in range(0, len(t['CallingAPIKey'])):
-            if Calling_API_Key == t['CallingAPIKey'][0:i + 1]:
-                ts.append(t)
-                break
+
+    cursor.execute("select count(id) from tasks where CallingAPIKey like '"+Calling_API_Key+"%';")
+    matched_results=cursor.fetchone()[0]  # number of matched results in database
+    cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
+                   " order by id OFFSET " + str((Page-1)*Page_Limit) + " rows fetch first " +
+                   str(Page_Limit) + " rows only"+";")
+    row = cursor.fetchone()
+    while row:
+        ts.append({'id': row[0],
+                      'TicketNo': row[1],
+                      'DateTimeStamp': row[2],
+                      'AutomationServiceAccount': row[3],
+                      'CallingAPIKey': row[4],
+                      'APIType': row[5],
+                      'Source': row[6],
+                      'TargetDevices': row[7],
+                      'AutomationName': row[8],
+                      'Status': row[9],
+                      'ExecutionTime': row[10]})
+        row = cursor.fetchone()
+
     if(len(ts)):
         if Page > math.ceil(len(ts) / Page_Limit):
-            return jsonify({'Error: ': 'No tasks to show for the specified page number.'})
+            return jsonify({'Error: ': 'No tasks to show for the specified page number. '})
     if len(ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]):
-        return jsonify({'Total Tasks': len(ts), 'No. of pages': math.ceil(len(ts)/Page_Limit), 'Page Limit (maximum : 100)': Page_Limit},
+        return jsonify({'Total Tasks': matched_results, 'No. of pages': math.ceil(len(ts)/Page_Limit), 'Page Limit (maximum : 100)': Page_Limit},
                        {'tasks': [make_public_task(task) for task in ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]]})
     return jsonify({'Error: ': 'No tasks to show for the specified CallingAPIKey'})
 
 
 @app.route('/api/telemetry/task', methods=['POST'])
-def create_task():       #post task - values of fields optional
-    if 'id' in request.json:
-        return jsonify({'Error: ': "id of the task is automatically assigned, no need to provide it"})
+@auth.login_required
+def create_task():       #post task - values of fields optional, just one needs to be passed to avoid bad request error
+    if request.json:
+        if 'id' in request.json:
+          return jsonify({'Error: ': "id of the task is automatically assigned, no need to provide it"})
     if 'ExecutionTime' in request.json and not str(request.json.get('ExecutionTime')).isdigit():
         return jsonify({'Error: ': "Execution Time can only be an integer type"})
+
+    cursor.execute("insert into dbo.tasks(Ticket_Number,Date_time,Automation_Service_account,CallingAPIKey,APIType,"
+                   "Source_,Target_Devices,Automation_Name,Status_,Execution_Time) values(?,?,?,?,?,?,?,?,?,?)",
+                   request.json.get('TicketNo', ""), datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
+                   request.json.get('AutomationServiceAccount', ""),request.json.get('CallingAPIKey', ""),
+                   request.json.get('APIType', ""),request.json.get('Source', ""),
+                   request.json.get('TargetDevices', ""),request.json.get('AutomationName', ""),
+                   request.json.get('Status', ""),request.json.get('ExecutionTime', "")
+                   )
+    cnxn.commit()
+
+    cursor.execute("use telemetry;")
+    cursor.execute("select count(id) from dbo.tasks;")
+    Number_of_tasks = [x for x in cursor.fetchone()][0]
+    cursor.execute("select * from tasks where id = (select max(id) from dbo.tasks)")
+    row = cursor.fetchone() # get this newly posted task from database to display
     # new task to be added to tasks list
-    task = {'id': (tasks[-1]['id'] + 1) if len(tasks) else 1,    # id of last task + 1 if tasks list is not empty else 1
-            'TicketNo': request.json.get('TicketNo', ""),
-            'DateTimeStamp': request.json.get('DateTimeStamp', datetime.now().strftime(("%Y-%m-%d %H:%M:%S"))),
-            'AutomationServiceAccount': request.json.get('AutomationServiceAccount', ""),
-            'CallingAPIKey': request.json.get('CallingAPIKey', ""),
-            'APIType': request.json.get('APIType', ""),
-            'Source': request.json.get('Source', ""),
-            'TargetDevices': request.json.get('TargetDevices', ""),      #get optional parameter values - default values also specified
-            'AutomationName': request.json.get('AutomationName', ""),
-            'Status': request.json.get('Status', ""),
-            'ExecutionTime': request.json.get('ExecutionTime', 0)
-            }
-    tasks.append(task)
-    return jsonify({'task': tasks[-1]}), 201         #show newly created task and return success code
+    task = ({'id': row[0],
+             'TicketNo': row[1],
+             'DateTimeStamp': row[2],
+             'AutomationServiceAccount': row[3],
+             'CallingAPIKey': row[4],
+             'APIType': row[5],
+             'Source': row[6],
+             'TargetDevices': row[7],
+             'AutomationName': row[8],
+             'Status': row[9],
+             'ExecutionTime': row[10]})
+
+    return jsonify({'task': task}), 201         #show newly created task and return success code
 
 if __name__ == '__main__':
     app.run(debug=True)                 #debug mode, switch off before deploying

@@ -1,0 +1,25 @@
+use master;
+/*drop database IF EXISTS telemetry;*/
+create database telemetry;
+select name from master.sys.databases order by name; /*to show databses*/
+/*or use - Exec sp_databases;
+use telemetry;*/
+
+create table tasks
+( id bigint primary key identity not null, Ticket_Number nvarchar(max) not null, Date_time datetime2 not null,
+Automation_Service_account nvarchar(max) not null, CallingAPIKey nvarchar(max) not null, APIType nvarchar(max) not null, Source_ nvarchar(max) not null, 
+Target_Devices nvarchar(max) not null, Automation_Name nvarchar(max) not null, Status_ nvarchar(max) not null, Execution_Time int not null);
+
+insert into tasks(id, Ticket_Number, Date_time, Automation_Service_account, CallingAPIKey, APIType, Source_, Target_Devices, Automation_Name, Status_, Execution_Time)
+values('id': 1,
+        'TicketNo': u'hbdm123',
+        'DateTimeStamp': datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
+        'AutomationServiceAccount': u'xyz',
+        'CallingAPIKey': u'abcd123',
+        'APIType': u'rest',
+        'Source': u'jklm',
+        'TargetDevices': u'jekhwb',
+        'AutomationName': u'Genp',
+        'Status': u'Not Done',
+        'ExecutionTime': 200
+		)

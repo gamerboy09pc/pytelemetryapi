@@ -1,17 +1,19 @@
-from flask import (Flask, jsonify, render_template, request, make_response, url_for)
+from flask import (Flask, jsonify, render_template, request, make_response, url_for)  # installed through pip
 from datetime import datetime
 import math
-import pyodbc
+import pyodbc  # installed through pip
 import pprint # prettyprint
-from flask_httpauth import HTTPBasicAuth
+from flask_httpauth import HTTPBasicAuth  # installed through pip
 
 app = Flask(__name__, template_folder="templates")
 
 '''........................................authentication block start......................................'''
+
 auth = HTTPBasicAuth()
 
 userN = 'pc'   # username
 passW = 'pcp'  # password
+
 
 @auth.get_password              #provides basic http authentication for get and post
 # in postman go to authorization tab, select Basic Auth and put username password there
@@ -27,7 +29,6 @@ def get_password_and_key(username):
 def unauthorized():
     #Return a 403 instead of a 401 to prevent browsers from displaying the default auth dialog
     return make_response(jsonify({'message': 'Unauthorized Access'}), 403)
-
 
 '''......................................authentication block end........................................'''
 
@@ -68,7 +69,7 @@ cursor = cnxn.cursor()
 
 '''...................................sql server connection block end................................'''
 
-'''tasks = [                 #list to store tasks of dictionary type
+'''tasks = [                 # sample data for list to store tasks of dictionary type
     {
         'id': 1,
         'TicketNo': u'hbdm123',
@@ -110,7 +111,8 @@ def make_public_task(task):           # replace 'id' field of task with uri of t
     new_task = {}
     for field in task:
         if field == 'id':
-            new_task['uri'] = url_for('get_task', Calling_API_Key=task['CallingAPIKey'], _external=True)  # _external=True gives absolute address
+            new_task['uri'] = url_for('get_task', Calling_API_Key=task['CallingAPIKey'], _external=True)
+            # _external=True gives absolute address
         else:
             new_task[field] = task[field]
     return new_task
@@ -119,7 +121,8 @@ def make_public_task(task):           # replace 'id' field of task with uri of t
 @app.route('/api/telemetry/task', methods=['GET'])
 @auth.login_required
 # http://localhost:5000/api/telemetry/task?Calling_API_Key=abcd&Page=1&Page_Limit=10
-def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter with partial search, Page and Page_Limit parameters for pagination
+def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter with partial search,
+                 # Page and Page_Limit parameters for pagination
 
     cursor.execute("select max(id) from dbo.tasks;")
     Number_of_tasks = [x for x in cursor.fetchone()][0] # check if database is empty
@@ -206,8 +209,10 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
         if Page > math.ceil(len(ts) / Page_Limit):
             return jsonify({'Error: ': 'No tasks to show for the specified page number. '})
     if len(ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]):
-        return jsonify({'Total Tasks': matched_results, 'No. of pages': math.ceil(len(ts)/Page_Limit), 'Page Limit (maximum : 100)': Page_Limit},
-                       {'tasks': [make_public_task(task) for task in ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]]})
+        return jsonify({'Total Tasks': matched_results, 'No. of pages': math.ceil(len(ts)/Page_Limit),
+                        'Page Limit (maximum : 100)': Page_Limit},
+                       {'tasks': [make_public_task(task) for task in ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]]}
+                       )
     return jsonify({'Error: ': 'No tasks to show for the specified CallingAPIKey'})
 
 
@@ -249,6 +254,7 @@ def create_task():       #post task - values of fields optional, just one needs 
              'ExecutionTime': row[10]})
 
     return jsonify({'task': task}), 201         #show newly created task and return success code
+
 
 if __name__ == '__main__':
     app.run(debug=True)                 #debug mode, switch off before deploying

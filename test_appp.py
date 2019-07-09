@@ -47,11 +47,11 @@ class MyTestCase1(unittest.TestCase):
         #pprint.pprint(data)
         #pprint.pprint(len(data))
         # test to check response code returned by get request
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, msg='Response code Test Failed')
         print('test_get_all - response code - Test passed')
 
         #pprint.pprint(len(data[1]['tasks'][0]))
-        self.assertTrue(len(data[1]['tasks']) <= appp.Page_Limit, msg='Tasks shown on page exceed page limit')
+        self.assertTrue(len(data[1]['tasks']) <= appp.Page_Limit, msg='Test Failed - Tasks shown on page exceed page limit')
         print('test_get_all - Page Limit constraint - Test passed')
         # test to check page limit constraint
 
@@ -83,7 +83,7 @@ class MyTestCase1(unittest.TestCase):
                                       content_type='application/json',  headers=
                                       {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
 
-            self.assertEqual(response2.status_code, 201)
+            self.assertEqual(response2.status_code, 201, msg='Response code Test Failed')
             # test for status code returned by post
             data = json.loads(response2.get_data())
             #pprint.pprint(data)
@@ -95,29 +95,29 @@ class MyTestCase1(unittest.TestCase):
         # randomly selected CallingAPIKey from CAKlist to pass as url parameter
         randomCAK = CAKlist[random.randint(0, y)]
         print(randomCAK)
-        response = self.app.get(BASE_URL+'?Calling_API_Key='+urllib.parse.quote(randomCAK)+'&Page=1&Page_Limit=10', headers=
-        {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
+        response = self.app.get(BASE_URL+'?Calling_API_Key='+urllib.parse.quote(randomCAK)+'&Page=1&Page_Limit=10',
+                                headers = {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
         data = json.loads(response.get_data())
-        pprint.pprint(data)
+        #pprint.pprint(data)
 
         cursor.execute("select count(id) from dbo.tasks;")
         Number_of_tasks = [x for x in cursor.fetchone()][0]
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, msg='Response code Test Failed')
         print('test_get_few - response code - Test passed')
         for i in range(0,len(data[1]['tasks'])):
             self.assertTrue(randomCAK.lower() in (data[1]['tasks'][i]['CallingAPIKey']).lower(),
-                            msg="CallingAPIKey of results don't match passed Calling_API_Key")
+                            msg="Test Failed - CallingAPIKey of results don't match passed Calling_API_Key")
         '''
         lower() is used as sql is case insensitive it returns all that match irrespective of lower or upper characters, 
         but python does not regard them as equals
         for eg abcdM not equal to abcdm in python but sql returns abcdM as a match to abcdm 
         '''
         print('test_get_few - CallingAPIKey match - Test passed')
-        self.assertTrue(len(data[1]) <= appp.Page_Limit, msg='Tasks shown on page exceed page limit')
+        self.assertTrue(len(data[1]) <= appp.Page_Limit, msg='Test Failed - Tasks shown on page exceed page limit')
         print('test_get_few - Page Limit - Test passed')
-        self.assertTrue(len(data[1]) <=  Number_of_tasks, msg='Number of Tasks shown exceed existing tasks')
+        self.assertTrue(len(data[1]) <=  Number_of_tasks, msg='Test Failed - Number of Tasks shown exceed existing tasks')
         print('test_get_few - Number of result Tasks shown - Test passed')
-        self.assertTrue(len(appp.ts) <=  Number_of_tasks, msg='Number of Tasks matching exceed existing tasks')
+        self.assertTrue(len(appp.ts) <=  Number_of_tasks, msg='Test Failed - Number of Tasks matching exceed existing tasks')
         print('test_get_few - Number of result Tasks less than existing tasks - Test passed')
 
     def test_empty_table(self):        # test if tasks list was empty, then newly created task should get id 1
@@ -142,9 +142,9 @@ class MyTestCase1(unittest.TestCase):
         # post a new task to empty tasks list
         cursor.execute("select max(id) from dbo.tasks;")
         new_id = [x for x in cursor.fetchone()][0]
-        self.assertTrue(new_id == 1, msg='Empty list test Failed')
+        self.assertTrue(new_id == 1, msg='Test Failed - Empty table test Failed')
         # check if id 1 was assigned to the new task
-        print('test_empty_list - id=1 for Empty List - Test passed')
+        print('test_empty_list - id=1 for Empty Table - Test passed')
 
 
     def test_post(self):
@@ -171,11 +171,12 @@ class MyTestCase1(unittest.TestCase):
                                  content_type='application/json', headers=
                                       {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
 
-            self.assertEqual(response1.status_code, 200)
+            self.assertEqual(response1.status_code, 200, msg='Response code Test Failed')
 
             data = json.loads(response1.get_data())
             #pprint.pprint(data)
-            self.assertEqual(data["Error: "], "id of the task is automatically assigned, no need to provide it")
+            self.assertEqual(data["Error: "], "id of the task is automatically assigned, no need to provide it",
+                             msg = 'Test Failed - Error doesnot match')
         print('test_post - correct Response Code returned by all posts(id test) - Test passed')
         print("test_post - check if error shown when 'id' parameter sent for all posts - Test passed")
 
@@ -198,7 +199,7 @@ class MyTestCase1(unittest.TestCase):
                                  data=json.dumps(task2),
                                  content_type='application/json',  headers=
                                      {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+":"+appp.passW,'ascii')).decode('ascii')})
-           self.assertEqual(response2.status_code, 201)
+           self.assertEqual(response2.status_code, 201, msg='Response code Test Failed')
 
            #test for status code returned by post
            data = json.loads(response2.get_data())
@@ -206,18 +207,19 @@ class MyTestCase1(unittest.TestCase):
 
            cursor.execute("select max(id) from dbo.tasks;")
            new_id = [x for x in cursor.fetchone()][0]
-           self.assertEqual(data['task']['id'], new_id, msg='Wrong id given to newly created task')
+           self.assertEqual(data['task']['id'], new_id, msg='Test Failed - Wrong id given to newly created task')
            # test for id assigned to new task
            cursor.execute("select * from dbo.tasks where id=1;")
            rows = cursor.fetchall()
            number_of_columns = len(rows[0])
-           self.assertEqual(len(data['task']), number_of_columns, msg = 'Newly created task does not have right number of fields')
+           self.assertEqual(len(data['task']), number_of_columns, msg = 'Test Failed - Newly created task does '
+                                                                        'not have right number of fields')
            # test for number of fields in new task
 
         print('test_post - correct Response Code returned by all posts - Test passed')
         print('test_post - correct Number of fields in all new tasks posted - Test passed')
         print('test_post - correct id assigned to all new task - Test passed')
-        self.assertEqual(data['task']['id'],y,msg='id of last task not correct')
+        self.assertEqual(data['task']['id'],y,msg='Test Failed - id of last task not correct')
         # test for id of last task, y should be equal to id of the last task created
         print('test_post - id of last task posted correct(equal to number of tasks)  - Test passed')
 

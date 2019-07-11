@@ -1,6 +1,7 @@
 from flask import (Flask, jsonify, render_template, request, make_response, url_for)  # installed through pip
 from datetime import datetime
 import math
+import random
 import string
 import pyodbc  # installed through pip
 import pprint # prettyprint
@@ -190,15 +191,20 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
 
     if '%' in Calling_API_Key or '[' or '_' in Calling_API_Key:
 
-        Calling_API_Key=Calling_API_Key.replace("%","`%")
-        Calling_API_Key = Calling_API_Key.replace("[", "`[")
-        Calling_API_Key = Calling_API_Key.replace("_", "`_")
+        esc_char = random.choice(string.punctuation)
+        while esc_char in Calling_API_Key:              # generate random escape character not present in CallingAPIKey
+            esc_char = random.choice(string.punctuation)
+        print(esc_char)
+        Calling_API_Key=Calling_API_Key.replace("%",esc_char+"%")
+        Calling_API_Key = Calling_API_Key.replace("[", esc_char+"[")
+        Calling_API_Key = Calling_API_Key.replace("_", esc_char+"_")
         #print(Calling_API_Key)
-        # escape character is ` so CallingAPIKey can't have ` and any of these characters at the same time
-        cursor.execute("select count(CallingAPIKey) from tasks where CallingAPIKey like '" + Calling_API_Key + "%' escape '`';")
+
+        cursor.execute("select count(CallingAPIKey) from tasks where CallingAPIKey like '" + Calling_API_Key
+                       + "%' escape '" + esc_char + "';")
         matched_results = cursor.fetchone()[0]
         cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
-                       " escape '`' order by id OFFSET " + str((Page - 1) * Page_Limit) + " rows fetch first " +
+                       " escape '"+esc_char+"' order by id OFFSET " + str((Page - 1) * Page_Limit) + " rows fetch first " +
                        str(Page_Limit) + " rows only" + ";")
         #print(Calling_API_Key)
 

@@ -1,6 +1,7 @@
 from flask import (Flask, jsonify, render_template, request, make_response, url_for)  # installed through pip
 from datetime import datetime
 import math
+import string
 import pyodbc  # installed through pip
 import pprint # prettyprint
 from flask_httpauth import HTTPBasicAuth  # installed through pip
@@ -136,6 +137,7 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
     Calling_API_Key = request.args.get('Calling_API_Key', None)
     Page = request.args.get('Page', 1)
     Page_Limit = request.args.get('Page_Limit', 5)
+    #print(Calling_API_Key)
 
     if not str(Page_Limit).isdigit() or int(Page_Limit) < 1 :
         return jsonify({'Error: ': 'Page Limit has to be an integer and cannot be less than 1. (Maximum 100)'})
@@ -153,7 +155,8 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
         Number_of_tasks = [x for x in cursor.fetchone()][0]  # number of tasks in database
         if Page > math.ceil(Number_of_tasks / Page_Limit) :
             return jsonify({'Error: ': 'No tasks to show for the specified page number. '})
-        cursor.execute("select * from tasks where id between "+str((Page - 1) * Page_Limit)+" and "+str((Page - 1) * Page_Limit + Page_Limit)+";")
+        cursor.execute("select * from tasks where id between "
+                       +str((Page - 1) * Page_Limit)+" and "+str((Page - 1) * Page_Limit + Page_Limit)+";")
         row = cursor.fetchone()
 
         while row:
@@ -178,19 +181,38 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
         return jsonify({'Error: ': 'No tasks to show.'})
 
     # to get all tasks with the specified Calling_API_Key - max tasks per page = Page_Limit
-    # to send url special characyers like & and = as parameter, you have to percent-encode them
-    # eg & should be sent as %26
+    # to send url special characters like & and = as parameter, you have to percent-encode them
+    # example -  & should be sent as %26
     Calling_API_Key = str(request.args.get('Calling_API_Key',None))
     global ts                             # global list to store matching tasks with the specified Calling_API_Key
     for i in range(len(ts) - 1, -1, -1):  # empty ts[] as it may have search results of previous calls
         ts.pop(i)
 
-    cursor.execute("select count(id) from tasks where CallingAPIKey like '"+Calling_API_Key+"%';")
-    matched_results=cursor.fetchone()[0]  # number of matched results in database
-    cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
-                   " order by id OFFSET " + str((Page-1)*Page_Limit) + " rows fetch first " +
-                   str(Page_Limit) + " rows only"+";")
+    if '%' in Calling_API_Key or '[' or '_' in Calling_API_Key:
+
+        Calling_API_Key=Calling_API_Key.replace("%","`%")
+        Calling_API_Key = Calling_API_Key.replace("[", "`[")
+        Calling_API_Key = Calling_API_Key.replace("_", "`_")
+        #print(Calling_API_Key)
+        # escape character is ` so CallingAPIKey can't have ` and any of these characters at the same time
+        cursor.execute("select count(CallingAPIKey) from tasks where CallingAPIKey like '" + Calling_API_Key + "%' escape '`';")
+        matched_results = cursor.fetchone()[0]
+        cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
+                       " escape '`' order by id OFFSET " + str((Page - 1) * Page_Limit) + " rows fetch first " +
+                       str(Page_Limit) + " rows only" + ";")
+        #print(Calling_API_Key)
+
+    else:
+
+        cursor.execute(
+            "select count(CallingAPIKey) from tasks where CallingAPIKey like '" + Calling_API_Key + "%' ;")
+        matched_results = cursor.fetchone()[0]
+        cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
+                       " order by id OFFSET " + str((Page - 1) * Page_Limit) + " rows fetch first " +
+                       str(Page_Limit) + " rows only" + ";")
+
     row = cursor.fetchone()
+
     while row:
         ts.append({'id': row[0],
                       'TicketNo': row[1],
@@ -205,11 +227,12 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
                       'ExecutionTime': row[10]})
         row = cursor.fetchone()
 
-    if(len(ts)):
+
+    if len(ts):
         if Page > math.ceil(len(ts) / Page_Limit):
             return jsonify({'Error: ': 'No tasks to show for the specified page number. '})
     if len(ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]):
-        return jsonify({'Total Tasks': matched_results, 'No. of pages': math.ceil(len(ts)/Page_Limit),
+        return jsonify({'Matched Results': matched_results, 'No. of pages': math.ceil(len(ts)/Page_Limit),
                         'Page Limit (maximum : 100)': Page_Limit},
                        {'tasks': [make_public_task(task) for task in ts[(Page-1)*Page_Limit:(Page-1)*Page_Limit+Page_Limit]]}
                        )

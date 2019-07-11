@@ -7,10 +7,22 @@ import pprint
 import base64
 import pyodbc
 import urllib
+import logging
 from datetime import datetime
 from copy import deepcopy
 
 BASE_URL = 'http://127.0.0.1:5000/api/telemetry/task'
+
+'''...................................logging setup block start................................'''
+
+logging.basicConfig(filename="test.log",
+                    format='%(asctime)s %(message)s',
+                    filemode='w')
+logger=logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.info(" test_appp STARTED ")
+
+'''...................................logging setup block end................................'''
 
 '''...................................sql server connection block start................................'''
 
@@ -25,6 +37,7 @@ cursor = cnxn.cursor()
 
 
 '''...................................sql server connection block end................................'''
+
 
 
 def randomStrings(length):                # a method to create random strings to put in tasks
@@ -42,11 +55,13 @@ class MyTestCase1(unittest.TestCase):
 
     def test_get_all(self):              #test get all tasks functionality of api
 
+        logger.info(datetime.now().strftime(("%Y-%m-%d %H:%M:%S")) + " test_get_all RUN ")
         response = self.app.get(BASE_URL, headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
         data = json.loads(response.get_data())
         #pprint.pprint(data)
         #pprint.pprint(len(data))
         # test to check response code returned by get request
+
         self.assertEqual(response.status_code, 200, msg='Response code Test Failed')
         print('test_get_all - response code - Test passed')
 
@@ -55,22 +70,23 @@ class MyTestCase1(unittest.TestCase):
         print('test_get_all - Page Limit constraint - Test passed')
         # test to check page limit constraint
 
+    def test_get_few(self):  # test get few tasks (by matching Calling_API_Key) functionality of api
 
-    def test_get_few(self):          # test get few tasks (by matching Calling_API_Key) functionality of api
-
-    # first we will post few tasks , adding their CallingAPIKey's to a list, from which we will pass to the get function
+        logger.info(datetime.now().strftime(("%Y-%m-%d %H:%M:%S")) + " test_get_few RUN ")
+        # first we will post few tasks , adding their CallingAPIKey's to a list, from which we will pass to the get function
         cursor.execute("use telemetry;")
         cursor.execute("truncate table dbo.tasks;")
         cnxn.commit()
         y = 1000  # how many tasks to post
-        CAKlist = [] # list to store generated CallingAPIKey's
+        CAKlist = []  # list to store generated CallingAPIKey's
 
         for i in range(0, y):  # repeat test for many post calls
             # see if correct status code is returned, correct id assigned and right number of fields in newly created task
             task2 = {"TicketNo": str(randomStrings(random.randint(1, 5))),
                      "DateTimeStamp": datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
                      "AutomationServiceAccount": str(randomStrings(random.randint(1, 5))),
-                     "CallingAPIKey": "abcd"+str(randomStrings(random.randint(1,2))), # all CallingAPIKey begin with abcd
+                     "CallingAPIKey": "abcd" + str(randomStrings(random.randint(1, 2))),
+                     # all CallingAPIKey begin with abcd
                      "APIType": str(randomStrings(random.randint(1, 5))),
                      "Source": str(randomStrings(random.randint(1, 5))),
                      "TargetDevices": str(randomStrings(random.randint(1, 5))),
@@ -80,31 +96,33 @@ class MyTestCase1(unittest.TestCase):
                      }
             response2 = self.app.post(BASE_URL,
                                       data=json.dumps(task2),
-                                      content_type='application/json',  headers=
-                                      {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
+                                      content_type='application/json', headers=
+                                      {'Authorization': 'Basic ' + base64.b64encode(
+                                          bytes(appp.userN + ':' + appp.passW, 'ascii')).decode('ascii')})
 
             self.assertEqual(response2.status_code, 201, msg='Response code Test Failed')
             # test for status code returned by post
             data = json.loads(response2.get_data())
-            #pprint.pprint(data)
+            # pprint.pprint(data)
             CAKlist.append(data['task']['CallingAPIKey'])
             # pprint.pprint(data)
 
-
-        #pprint.pprint(CAKlist)
+        # pprint.pprint(CAKlist)
         # randomly selected CallingAPIKey from CAKlist to pass as url parameter
         randomCAK = CAKlist[random.randint(0, y)]
-        print(randomCAK)
-        response = self.app.get(BASE_URL+'?Calling_API_Key='+urllib.parse.quote(randomCAK)+'&Page=1&Page_Limit=10',
-                                headers = {'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
+        #print(randomCAK)
+        response = self.app.get(
+            BASE_URL + '?Calling_API_Key=' + urllib.parse.quote(randomCAK) + '&Page=1&Page_Limit=10',
+            headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN + ':' + appp.passW, 'ascii')).decode(
+                'ascii')})
         data = json.loads(response.get_data())
-        #pprint.pprint(data)
+        # pprint.pprint(data)
 
         cursor.execute("select count(id) from dbo.tasks;")
         Number_of_tasks = [x for x in cursor.fetchone()][0]
         self.assertEqual(response.status_code, 200, msg='Response code Test Failed')
         print('test_get_few - response code - Test passed')
-        for i in range(0,len(data[1]['tasks'])):
+        for i in range(0, len(data[1]['tasks'])):
             self.assertTrue(randomCAK.lower() in (data[1]['tasks'][i]['CallingAPIKey']).lower(),
                             msg="Test Failed - CallingAPIKey of results don't match passed Calling_API_Key")
         '''
@@ -115,13 +133,16 @@ class MyTestCase1(unittest.TestCase):
         print('test_get_few - CallingAPIKey match - Test passed')
         self.assertTrue(len(data[1]) <= appp.Page_Limit, msg='Test Failed - Tasks shown on page exceed page limit')
         print('test_get_few - Page Limit - Test passed')
-        self.assertTrue(len(data[1]) <=  Number_of_tasks, msg='Test Failed - Number of Tasks shown exceed existing tasks')
+        self.assertTrue(len(data[1]) <= Number_of_tasks,
+                        msg='Test Failed - Number of Tasks shown exceed existing tasks')
         print('test_get_few - Number of result Tasks shown - Test passed')
-        self.assertTrue(len(appp.ts) <=  Number_of_tasks, msg='Test Failed - Number of Tasks matching exceed existing tasks')
+        self.assertTrue(len(appp.ts) <= Number_of_tasks,
+                        msg='Test Failed - Number of Tasks matching exceed existing tasks')
         print('test_get_few - Number of result Tasks less than existing tasks - Test passed')
 
     def test_empty_table(self):        # test if tasks list was empty, then newly created task should get id 1
 
+        logger.info(datetime.now().strftime(("%Y-%m-%d %H:%M:%S")) + " test_empty_table RUN ")
         cursor.execute("use telemetry;")
         cursor.execute("truncate table dbo.tasks;")
         cnxn.commit()
@@ -146,9 +167,9 @@ class MyTestCase1(unittest.TestCase):
         # check if id 1 was assigned to the new task
         print('test_empty_list - id=1 for Empty Table - Test passed')
 
-
     def test_post(self):
 
+        logger.info(datetime.now().strftime(("%Y-%m-%d %H:%M:%S")) + " test_post RUN ")
         cursor.execute("use telemetry;")
         cursor.execute("truncate table dbo.tasks;")
         cnxn.commit()
@@ -225,7 +246,7 @@ class MyTestCase1(unittest.TestCase):
 
 
     def tearDown(self):
-        appp.tasks = self.backup_items     # reset appp.tasks to initial state
+        appp.tasks = self.backup_items  # reset appp.tasks to initial state
 
 
 if __name__ == '__main__':

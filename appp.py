@@ -189,7 +189,7 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
     for i in range(len(ts) - 1, -1, -1):  # empty ts[] as it may have search results of previous calls
         ts.pop(i)
 
-    if '%' in Calling_API_Key or '[' or '_' in Calling_API_Key:
+    if '%' in Calling_API_Key or '[' in Calling_API_Key or '_' in Calling_API_Key:
 
         esc_char = random.choice(string.punctuation)
         while esc_char in Calling_API_Key:              # generate random escape character not present in CallingAPIKey

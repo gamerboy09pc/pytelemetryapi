@@ -2,6 +2,7 @@ from flask import (Flask, jsonify, render_template, request, make_response, url_
 from datetime import datetime
 import math
 import random
+import urllib
 import string
 import pyodbc  # installed through pip
 import pprint # prettyprint
@@ -120,6 +121,8 @@ def make_public_task(task):           # replace 'id' field of task with uri of t
     return new_task
 
 
+
+
 @app.route('/api/telemetry/task', methods=['GET'])
 @auth.login_required
 # http://localhost:5000/api/telemetry/task?Calling_API_Key=abcd&Page=1&Page_Limit=10
@@ -189,37 +192,25 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
     for i in range(len(ts) - 1, -1, -1):  # empty ts[] as it may have search results of previous calls
         ts.pop(i)
 
-    if '%' in Calling_API_Key or '[' in Calling_API_Key or '_' in Calling_API_Key:
-
+    esc_char = random.choice(string.punctuation)
+    while esc_char in Calling_API_Key:              # generate random escape character not present in CallingAPIKey
         esc_char = random.choice(string.punctuation)
-        while esc_char in Calling_API_Key:              # generate random escape character not present in CallingAPIKey
-            esc_char = random.choice(string.punctuation)
-        print(esc_char)
-        Calling_API_Key=Calling_API_Key.replace("%",esc_char+"%")
-        Calling_API_Key = Calling_API_Key.replace("[", esc_char+"[")
-        Calling_API_Key = Calling_API_Key.replace("_", esc_char+"_")
-        #print(Calling_API_Key)
-
-        cursor.execute("select count(CallingAPIKey) from tasks where CallingAPIKey like '" + Calling_API_Key
-                       + "%' escape '" + esc_char + "';")
-        matched_results = cursor.fetchone()[0]
-        cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
-                       " escape '"+esc_char+"' order by id OFFSET " + str((Page - 1) * Page_Limit) + " rows fetch first " +
-                       str(Page_Limit) + " rows only" + ";")
-        #print(Calling_API_Key)
-
-    else:
-
-        cursor.execute(
-            "select count(CallingAPIKey) from tasks where CallingAPIKey like '" + Calling_API_Key + "%' ;")
-        matched_results = cursor.fetchone()[0]
-        cursor.execute("select * from tasks where CallingAPIKey like '" + Calling_API_Key + "%'" +
-                       " order by id OFFSET " + str((Page - 1) * Page_Limit) + " rows fetch first " +
-                       str(Page_Limit) + " rows only" + ";")
+    print(esc_char)
+    Calling_API_Key=Calling_API_Key.replace("%",esc_char+"%")
+    Calling_API_Key = Calling_API_Key.replace("[", esc_char+"[")
+    Calling_API_Key = Calling_API_Key.replace("_", esc_char+"_")
+    #Calling_API_Key = Calling_API_Key + "%"
+    print(Calling_API_Key)
+    cursor.execute("counttasks '" + Calling_API_Key + "', '" + esc_char +"'")
+    matched_results = cursor.fetchone()[0]
+    print(matched_results)
+    cursor.execute("gettasks '" + Calling_API_Key + "', '" + esc_char +"', " + str(((Page - 1) * Page_Limit))
+                   +", " + str(Page_Limit) + ";")
 
     row = cursor.fetchone()
 
     while row:
+        #pprint.pprint(row)
         ts.append({'id': row[0],
                       'TicketNo': row[1],
                       'DateTimeStamp': row[2],
@@ -284,11 +275,13 @@ def create_task():       #post task - values of fields optional, just one needs 
 
     return jsonify({'task': task}), 201         #show newly created task and return success code
 
+
 @app.route('/api/telemetry/encode', methods=['POST'])
 @auth.login_required
 # http://localhost:5000/api/telemetry/encode
 def get_encode():         # a method to get url encoded string
     return jsonify(urllib.parse.quote(request.json.get('String', "")))
+
 
 if __name__ == '__main__':
     app.run(debug=True)                 #debug mode, switch off before deploying

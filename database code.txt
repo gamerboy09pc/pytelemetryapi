@@ -23,3 +23,24 @@ values('id': 1,
         'Status': u'Not Done',
         'ExecutionTime': 200
 		)
+
+create PROCEDURE counttasks(@CAK AS nvarchar(50),@escchar AS char)  
+AS  
+BEGIN  
+select count(CallingAPIKey) from dbo.tasks where CallingAPIKey Like @CAK + '%' escape @escchar 
+   
+END;
+/* execute dbo.counttasks @CAK='abcd1', @escchar='{'; */
+
+create PROCEDURE gettasks(
+    @CAK AS nvarchar(50),
+    @escchar AS char,
+    @offs AS Integer,
+    @fet AS Integer
+)
+AS
+BEGIN
+    select * from dbo.tasks where CallingAPIKey Like @CAK + '%' escape @escchar 
+	order by id OFFSET @offs rows fetch first @fet rows only ;
+END;
+/*execute dbo.gettasks @CAK = 'abcd1', @escchar = ']', @offs = 0, @fet = 10;*/

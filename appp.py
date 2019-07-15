@@ -284,6 +284,11 @@ def create_task():       #post task - values of fields optional, just one needs 
 
     return jsonify({'task': task}), 201         #show newly created task and return success code
 
+@app.route('/api/telemetry/encode', methods=['POST'])
+@auth.login_required
+# http://localhost:5000/api/telemetry/encode
+def get_encode():         # a method to get url encoded string
+    return jsonify(urllib.parse.quote(request.json.get('String', "")))
 
 if __name__ == '__main__':
     app.run(debug=True)                 #debug mode, switch off before deploying

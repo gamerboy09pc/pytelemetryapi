@@ -125,7 +125,7 @@ class MyTestCase1(unittest.TestCase):
             # pprint.pprint(data)
 
 
-        x=10  # number of times the test will be done
+        x=100  # number of times the test will be done
         for i in range(0,x):
             # pprint.pprint(CAKlist)
             # randomly selected CallingAPIKey from CAKlist to pass as url parameter

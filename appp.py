@@ -194,8 +194,9 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
 
     Calling_API_Key = Calling_API_Key.replace("'", "''") # double it as ' is a string identifier in sql
     esc_char = random.choice(string.punctuation)
-    while esc_char in Calling_API_Key or esc_char == "'":  # generate random escape character not
-        esc_char = random.choice(string.punctuation)     # present in CallingAPIKey. also ' is not allowed. causes error
+    while esc_char in Calling_API_Key or esc_char == "'" or esc_char == "_" or esc_char == "%" or esc_char == "[":
+        # generate random escape character not present in CallingAPIKey. also ' _ % [ are not allowed. cause error
+        esc_char = random.choice(string.punctuation)     #
     print("Escape Character : " + str(esc_char))
     Calling_API_Key=Calling_API_Key.replace("%",esc_char+"%")
     Calling_API_Key = Calling_API_Key.replace("[", esc_char+"[")

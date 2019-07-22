@@ -45,6 +45,15 @@ def randomStrings(length):                # a method to create random strings to
     allowed = string.printable
     return ''.join(random.choice(allowed) for i in range(length))
 
+def randomCharacter():         # a method to create random character to append after 'abcd' in CallingAPIKey in get_few
+  """Generate a random character from letters, digits and special characters
+  (whitespace character not allowed except blankspace)"""
+  c = random.choice(string.printable)
+  while c in string.whitespace :
+    if c == " ":
+        return c
+    c = random.choice(string.printable)
+  return c
 
 class MyTestCase1(unittest.TestCase):
 
@@ -56,7 +65,7 @@ class MyTestCase1(unittest.TestCase):
     def test_get_all(self):              #test get all tasks functionality of api
 
         logger.info(datetime.now().strftime(("%Y-%m-%d %H:%M:%S")) + " test_get_all RUN ")
-        response = self.app.get(BASE_URL, headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':'+appp.passW,'ascii')).decode('ascii')})
+        response = self.app.get(BASE_URL, headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN+':' +appp.passW,'ascii')).decode('ascii')})
         data = json.loads(response.get_data())
         #pprint.pprint(data)
         #pprint.pprint(len(data))
@@ -69,6 +78,14 @@ class MyTestCase1(unittest.TestCase):
         self.assertTrue(len(data[1]['tasks']) <= appp.Page_Limit, msg='Test Failed - Tasks shown on page exceed page limit')
         print('test_get_all - Page Limit constraint - Test passed')
         # test to check page limit constraint
+        cursor.execute("use telemetry;")
+        cursor.execute("select count(id) from dbo.tasks;")
+        Number_of_tasks = [x for x in cursor.fetchone()][0]
+        print(Number_of_tasks)
+        self.assertTrue(len(data[1]['tasks']) <= appp.Page_Limit,
+                        msg='Test Failed - Tasks shown on page exceed tasks actually in database')
+        print('test_get_all - No extra tasks - Test passed')
+
 
     def test_get_few(self):  # test get few tasks (by matching Calling_API_Key) functionality of api
 
@@ -85,8 +102,8 @@ class MyTestCase1(unittest.TestCase):
             task2 = {"TicketNo": str(randomStrings(random.randint(1, 5))),
                      "DateTimeStamp": datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
                      "AutomationServiceAccount": str(randomStrings(random.randint(1, 5))),
-                     "CallingAPIKey": "abcd" + str(randomStrings(random.randint(1, 2))),
-                     # all CallingAPIKey begin with abcd
+                     "CallingAPIKey": "abcd" + str(randomCharacter()),
+        # all CallingAPIKey begin with abcd and are appended with a non-whitespace character(blankspace allowed though)
                      "APIType": str(randomStrings(random.randint(1, 5))),
                      "Source": str(randomStrings(random.randint(1, 5))),
                      "TargetDevices": str(randomStrings(random.randint(1, 5))),
@@ -107,38 +124,43 @@ class MyTestCase1(unittest.TestCase):
             CAKlist.append(data['task']['CallingAPIKey'])
             # pprint.pprint(data)
 
-        # pprint.pprint(CAKlist)
-        # randomly selected CallingAPIKey from CAKlist to pass as url parameter
-        randomCAK = CAKlist[random.randint(0, y)]
-        #print(randomCAK)
-        response = self.app.get(
-            BASE_URL + '?Calling_API_Key=' + urllib.parse.quote(randomCAK) + '&Page=1&Page_Limit=10',
-            headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN + ':' + appp.passW, 'ascii')).decode(
-                'ascii')})
-        data = json.loads(response.get_data())
-        # pprint.pprint(data)
 
-        cursor.execute("select count(id) from dbo.tasks;")
-        Number_of_tasks = [x for x in cursor.fetchone()][0]
-        self.assertEqual(response.status_code, 200, msg='Response code Test Failed')
-        print('test_get_few - response code - Test passed')
-        for i in range(0, len(data[1]['tasks'])):
-            self.assertTrue(randomCAK.lower() in (data[1]['tasks'][i]['CallingAPIKey']).lower(),
-                            msg="Test Failed - CallingAPIKey of results don't match passed Calling_API_Key")
-        '''
-        lower() is used as sql is case insensitive it returns all that match irrespective of lower or upper characters, 
-        but python does not regard them as equals
-        for eg abcdM not equal to abcdm in python but sql returns abcdM as a match to abcdm 
-        '''
-        print('test_get_few - CallingAPIKey match - Test passed')
-        self.assertTrue(len(data[1]) <= appp.Page_Limit, msg='Test Failed - Tasks shown on page exceed page limit')
-        print('test_get_few - Page Limit - Test passed')
-        self.assertTrue(len(data[1]) <= Number_of_tasks,
-                        msg='Test Failed - Number of Tasks shown exceed existing tasks')
-        print('test_get_few - Number of result Tasks shown - Test passed')
-        self.assertTrue(len(appp.ts) <= Number_of_tasks,
-                        msg='Test Failed - Number of Tasks matching exceed existing tasks')
-        print('test_get_few - Number of result Tasks less than existing tasks - Test passed')
+        x=10  # number of times the test will be done
+        for i in range(0,x):
+            # pprint.pprint(CAKlist)
+            # randomly selected CallingAPIKey from CAKlist to pass as url parameter
+            randomCAK = CAKlist[random.randint(0, y)]
+            #print(randomCAK)
+            print("\n url encoded " + randomCAK + " -> " + urllib.parse.quote(randomCAK))
+            response = self.app.get(
+                BASE_URL + '?Calling_API_Key=' + urllib.parse.quote(randomCAK) + '&Page=1&Page_Limit=10',
+                headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN + ':' + appp.passW, 'ascii')).decode(
+                    'ascii')})
+            data = json.loads(response.get_data())
+            # pprint.pprint(data)
+
+            cursor.execute("select count(id) from dbo.tasks;")
+            Number_of_tasks = [x for x in cursor.fetchone()][0]
+            self.assertEqual(response.status_code, 200, msg='Response code Test Failed')
+            print('test_get_few - response code - Test passed')
+            for i in range(0, len(data[1]['tasks'])):
+                self.assertTrue(randomCAK.lower() in (data[1]['tasks'][i]['CallingAPIKey']).lower(),
+                                msg="Test Failed - CallingAPIKey of results don't match passed Calling_API_Key")
+            '''
+            lower() is used as sql is case insensitive it returns all that match irrespective of lower or upper characters, 
+            but python does not regard them as equals
+            for eg abcdM not equal to abcdm in python but sql returns abcdM as a match to abcdm 
+            '''
+            print('test_get_few - CallingAPIKey match - Test passed')
+            self.assertTrue(len(data[1]) <= appp.Page_Limit, msg='Test Failed - Tasks shown on page exceed page limit')
+            print('test_get_few - Page Limit - Test passed')
+            self.assertTrue(len(data[1]) <= Number_of_tasks,
+                            msg='Test Failed - Number of Tasks shown exceed existing tasks')
+            print('test_get_few - Number of result Tasks shown - Test passed')
+            self.assertTrue(len(appp.ts) <= Number_of_tasks,
+                            msg='Test Failed - Number of Tasks matching exceed existing tasks')
+            print('test_get_few - Number of result Tasks less than existing tasks - Test passed')
+
 
     def test_empty_table(self):        # test if tasks list was empty, then newly created task should get id 1
 

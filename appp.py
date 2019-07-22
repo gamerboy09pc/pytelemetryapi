@@ -192,18 +192,19 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
     for i in range(len(ts) - 1, -1, -1):  # empty ts[] as it may have search results of previous calls
         ts.pop(i)
 
+    Calling_API_Key = Calling_API_Key.replace("'", "''") # double it as ' is a string identifier in sql
     esc_char = random.choice(string.punctuation)
-    while esc_char in Calling_API_Key:              # generate random escape character not present in CallingAPIKey
-        esc_char = random.choice(string.punctuation)
-    print(esc_char)
+    while esc_char in Calling_API_Key or esc_char == "'":  # generate random escape character not
+        esc_char = random.choice(string.punctuation)     # present in CallingAPIKey. also ' is not allowed. causes error
+    print("Escape Character : " + str(esc_char))
     Calling_API_Key=Calling_API_Key.replace("%",esc_char+"%")
     Calling_API_Key = Calling_API_Key.replace("[", esc_char+"[")
     Calling_API_Key = Calling_API_Key.replace("_", esc_char+"_")
     #Calling_API_Key = Calling_API_Key + "%"
-    print(Calling_API_Key)
-    cursor.execute("counttasks '" + Calling_API_Key + "', '" + esc_char +"'")
+    print("CallingAPIKey : " + str(Calling_API_Key))
+    cursor.execute("counttasks '" + Calling_API_Key + "', '" + esc_char +"';")
     matched_results = cursor.fetchone()[0]
-    print(matched_results)
+    print("Matched results : " + str(matched_results))
     cursor.execute("gettasks '" + Calling_API_Key + "', '" + esc_char +"', " + str(((Page - 1) * Page_Limit))
                    +", " + str(Page_Limit) + ";")
 

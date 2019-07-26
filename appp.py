@@ -197,15 +197,15 @@ def get_task():  # get all tasks or specific tasks by Calling_API_Key parameter 
     while esc_char in Calling_API_Key or esc_char == "'" or esc_char == "_" or esc_char == "%" or esc_char == "[":
         # generate random escape character not present in CallingAPIKey. also ' _ % [ are not allowed. cause error
         esc_char = random.choice(string.punctuation)     #
-    print("Escape Character : " + str(esc_char))
+    #print("Escape Character : " + str(esc_char))
     Calling_API_Key=Calling_API_Key.replace("%",esc_char+"%")
     Calling_API_Key = Calling_API_Key.replace("[", esc_char+"[")
     Calling_API_Key = Calling_API_Key.replace("_", esc_char+"_")
-    #Calling_API_Key = Calling_API_Key + "%"
-    print("CallingAPIKey : " + str(Calling_API_Key))
+    #print("CallingAPIKey : " + str(Calling_API_Key))
+
     cursor.execute("counttasks '" + Calling_API_Key + "', '" + esc_char +"';")
     matched_results = cursor.fetchone()[0]
-    print("Matched results : " + str(matched_results))
+    #print("Matched results : " + str(matched_results))
     cursor.execute("gettasks '" + Calling_API_Key + "', '" + esc_char +"', " + str(((Page - 1) * Page_Limit))
                    +", " + str(Page_Limit) + ";")
 
@@ -250,10 +250,10 @@ def create_task():       #post task - values of fields optional, just one needs 
     cursor.execute("insert into dbo.tasks(Ticket_Number,Date_time,Automation_Service_account,CallingAPIKey,APIType,"
                    "Source_,Target_Devices,Automation_Name,Status_,Execution_Time) values(?,?,?,?,?,?,?,?,?,?)",
                    request.json.get('TicketNo', ""), datetime.now().strftime(("%Y-%m-%d %H:%M:%S")),
-                   request.json.get('AutomationServiceAccount', ""),request.json.get('CallingAPIKey', ""),
-                   request.json.get('APIType', ""),request.json.get('Source', ""),
-                   request.json.get('TargetDevices', ""),request.json.get('AutomationName', ""),
-                   request.json.get('Status', ""),request.json.get('ExecutionTime', "")
+                   request.json.get('AutomationServiceAccount', ""), request.json.get('CallingAPIKey', ""),
+                   request.json.get('APIType', ""), request.json.get('Source', ""),
+                   request.json.get('TargetDevices', ""), request.json.get('AutomationName', ""),
+                   request.json.get('Status', ""), request.json.get('ExecutionTime', "")
                    )
     cnxn.commit()
 
@@ -262,7 +262,7 @@ def create_task():       #post task - values of fields optional, just one needs 
     Number_of_tasks = [x for x in cursor.fetchone()][0]
     cursor.execute("select * from tasks where id = (select max(id) from dbo.tasks)")
     row = cursor.fetchone() # get this newly posted task from database to display
-    # new task to be added to tasks list
+    # new task that was added to database
     task = ({'id': row[0],
              'TicketNo': row[1],
              'DateTimeStamp': row[2],
@@ -279,7 +279,7 @@ def create_task():       #post task - values of fields optional, just one needs 
 
 
 @app.route('/api/telemetry/encode', methods=['POST'])
-@auth.login_required
+@auth.login_required               # a method to return url encoded string that can be passed as CallingAPIKey parameter
 # http://localhost:5000/api/telemetry/encode
 def get_encode():         # a method to get url encoded string
     return jsonify(urllib.parse.quote(request.json.get('String', "")))

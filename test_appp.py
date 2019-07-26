@@ -125,13 +125,13 @@ class MyTestCase1(unittest.TestCase):
             # pprint.pprint(data)
 
 
-        x=100  # number of times the test will be done
+        x=1000  # number of times the test will be done
         for i in range(0,x):
             # pprint.pprint(CAKlist)
             # randomly selected CallingAPIKey from CAKlist to pass as url parameter
             randomCAK = CAKlist[random.randint(0, y)]
             #print(randomCAK)
-            print("\n url encoded " + randomCAK + " -> " + urllib.parse.quote(randomCAK))
+            # print("\n url encoded " + randomCAK + " -> " + urllib.parse.quote(randomCAK))
             response = self.app.get(
                 BASE_URL + '?Calling_API_Key=' + urllib.parse.quote(randomCAK) + '&Page=1&Page_Limit=10',
                 headers={'Authorization': 'Basic ' + base64.b64encode(bytes(appp.userN + ':' + appp.passW, 'ascii')).decode(
